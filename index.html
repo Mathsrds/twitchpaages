@@ -1,149 +1,148 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Twitch VOD Sequencer — Real Demo</title>
-<style>
-body{font-family:sans-serif;margin:0;padding:0;background:#071020;color:#e6eef6;display:flex;flex-direction:column;align-items:center}
-.container{max-width:900px;width:100%;padding:20px}
-input,button{padding:8px;border-radius:6px;border:1px solid #333;background:#0b1220;color:#e6eef6}
-button{background:#6ee7b7;color:black;cursor:pointer;margin-left:4px}
-.player-wrap{display:flex;gap:12px;margin-top:20px}
-iframe{width:640px;height:360px;border:0;border-radius:8px;background:black}
-.playlist{width:240px;height:360px;overflow:auto;background:#0b1220;padding:8px;border-radius:8px}
-.video-item{padding:6px;margin-bottom:6px;background:#0a111e;border-radius:4px;cursor:pointer}
-.video-item.active{outline:2px solid #6ee7b7}
-</style>
+  <meta charset="UTF-8">
+  <title>Twitch VOD Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #18181b;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    #controls {
+      margin-bottom: 15px;
+    }
+    #viewerCounter, #viewTime {
+      font-size: 18px;
+      margin: 8px 0;
+    }
+    #player {
+      width: 80%;
+      max-width: 900px;
+      height: 500px;
+      margin-bottom: 15px;
+      border: 2px solid #9146FF;
+      border-radius: 10px;
+    }
+    #chat {
+      width: 80%;
+      max-width: 900px;
+      height: 250px;
+      background: #0e0e10;
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .msg {
+      margin: 4px 0;
+      padding: 4px 8px;
+    }
+    .user {
+      font-weight: bold;
+      color: #9146FF;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-<h1>Twitch VOD Sequencer — Real Demo</h1>
-<p>Cole um link de VOD ou de canal da Twitch. Vídeos com mínimo de 15 minutos serão reproduzidos em sequência.</p>
-<div style="display:flex;gap:4px;align-items:center">
-<input id="linkInput" placeholder="Cole link de VOD ou canal" style="flex:1">
-<button id="playBtn">Reproduzir</button>
-</div>
-<div class="player-wrap">
-<iframe id="player" src=""></iframe>
-<div class="playlist" id="playlist"></div>
-</div>
-</div>
+  <h1>🎥 Twitch VOD Viewer</h1>
 
-<script>
-const CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'; // Client-ID público usado para demo
-const linkInput = document.getElementById('linkInput');
-const playBtn = document.getElementById('playBtn');
-const player = document.getElementById('player');
-const playlistEl = document.getElementById('playlist');
+  <div id="controls">
+    <input type="text" id="videoUrl" placeholder="Cole o link do vídeo da Twitch">
+    <button id="loadVideo">Carregar vídeo</button>
+  </div>
 
-let playlist = [];
-let index = 0;
-let timer = null;
+  <div id="viewerCounter">👀 Visualizações: 0</div>
+  <div id="viewTime">⏱ Tempo de visualização: -</div>
 
-function parseLink(link){
-  try{
-    const u=new URL(link);
-    let path=u.pathname.replace(/^\/|\/$/g,'');
-    if(path.startsWith('videos/')) return {type:'video',id:path.split('/')[1]};
-    return {type:'channel',id:path.split('/')[0]};
-  }catch(e){ return null; }
-}
+  <iframe id="player" src="" frameborder="0" allowfullscreen></iframe>
 
-function buildEmbed(id){ return `https://player.twitch.tv/?video=v${id}&parent=${location.hostname}&autoplay=true`; }
+  <div id="chat"></div>
 
-function renderPlaylist(){
-  playlistEl.innerHTML='';
-  playlist.forEach((v,i)=>{
-    const div=document.createElement('div');
-    div.className='video-item'+(i===index?' active':'');
-    div.textContent=v.title + ' ('+Math.floor(v.duration_seconds/60)+'min)';
-    div.onclick=()=>{loadIndex(i);}
-    playlistEl.appendChild(div);
-  });
-}
+  <script>
+    const loadBtn = document.getElementById("loadVideo");
+    const videoInput = document.getElementById("videoUrl");
+    const player = document.getElementById("player");
+    const counterEl = document.getElementById("viewerCounter");
+    const timeEl = document.getElementById("viewTime");
+    const chatBox = document.getElementById("chat");
 
-function loadIndex(i){
-  if(i<0||i>=playlist.length) return;
-  index=i;
-  player.src=buildEmbed(playlist[i].video_id);
-  renderPlaylist();
-  if(timer) clearTimeout(timer);
-  timer = setTimeout(()=>{
-    if(index<playlist.length-1) loadIndex(index+1);
-  },playlist[i].duration_seconds*1000+2000);
-}
+    let views = localStorage.getItem("views") ? parseInt(localStorage.getItem("views")) : 0;
+    counterEl.textContent = `👀 Visualizações: ${views}`;
+    let currentTimeout;
 
-async function fetchJson(url){
-  const res = await fetch(url,{ headers:{ 'Client-ID': CLIENT_ID }});
-  if(!res.ok) throw new Error('Falha na API Twitch');
-  return await res.json();
-}
+    // nomes e mensagens para chat simulado
+    const users = ["joao123", "proplayerBR", "gamerGirl", "noobzinho", "xXDragonXx", "mariaFPS", "lucasLOL"];
+    const messages = [
+      "Boa jogada!",
+      "Como você fez isso?",
+      "kkkkkkkk",
+      "Caraca, quase!",
+      "Bora rankear?",
+      "Isso foi sorte ou skill?",
+      "Muito bom 🔥",
+      "Joga demais!",
+      "Qual setup você usa?"
+    ];
 
-async function fetchChannelVideos(channelId, minDuration=15, limit=10){
-  try{
-    // pegar id do usuário
-    const userData = await fetchJson(`https://api.twitch.tv/helix/users?login=${channelId}`);
-    if(!userData.data || !userData.data.length) return [];
-    const userId = userData.data[0].id;
+    function addChatMessage() {
+      const user = users[Math.floor(Math.random() * users.length)];
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      const div = document.createElement("div");
+      div.classList.add("msg");
+      div.innerHTML = `<span class="user">${user}:</span> ${msg}`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
 
-    // buscar vídeos
-    let videos=[];
-    let cursor=null;
-    while(videos.length<limit){
-      const params=new URLSearchParams({ user_id:userId, first:String(Math.min(100,limit-videos.length)) });
-      if(cursor) params.set('after',cursor);
-      const vdata = await fetchJson('https://api.twitch.tv/helix/videos?' + params.toString());
-      if(!vdata.data || !vdata.data.length) break;
-      for(const v of vdata.data){
-        const seconds = isoDurationToSeconds(v.duration);
-        if(seconds>=minDuration*60) videos.push({video_id:v.id,title:v.title,duration_seconds:seconds});
-        if(videos.length>=limit) break;
+    function startChatSimulation() {
+      setInterval(() => {
+        addChatMessage();
+      }, Math.floor(Math.random() * 8000) + 4000); // entre 4s e 12s
+    }
+
+    function getRandomViewTime() {
+      return Math.floor(Math.random() * (60 - 15 + 1)) + 15; // 15 a 60 minutos
+    }
+
+    function loadVideoLoop(videoId) {
+      // soma view
+      views++;
+      localStorage.setItem("views", views);
+      counterEl.textContent = `👀 Visualizações: ${views}`;
+
+      // define tempo de exibição
+      const minutes = getRandomViewTime();
+      timeEl.textContent = `⏱ Tempo de visualização: ${minutes} minutos`;
+
+      // carrega o player
+      player.src = `https://player.twitch.tv/?video=${videoId}&parent=${window.location.hostname}`;
+
+      // agendar próxima execução
+      clearTimeout(currentTimeout);
+      currentTimeout = setTimeout(() => {
+        loadVideoLoop(videoId); // recarrega o mesmo vídeo em loop
+      }, minutes * 60 * 1000);
+    }
+
+    loadBtn.addEventListener("click", () => {
+      const url = videoInput.value.trim();
+      const match = url.match(/videos\/(\d+)/);
+      if (!match) {
+        alert("Link inválido. Cole o link de um vídeo da Twitch.");
+        return;
       }
-      cursor=vdata.pagination?.cursor;
-      if(!cursor) break;
-    }
-    return videos;
-  }catch(e){ console.error(e); return []; }
-}
-
-function isoDurationToSeconds(s){
-  if(!s) return 0;
-  let str=s.replace(/^PT/,'');
-  let total=0,num='';
-  for(const ch of str){
-    if(ch>='0' && ch<='9'){ num+=ch; continue; }
-    if(num){
-      const n=parseInt(num,10);
-      if(ch==='H') total+=n*3600;
-      else if(ch==='M') total+=n*60;
-      else if(ch==='S') total+=n;
-      num='';
-    }
-  }
-  return total;
-}
-
-playBtn.onclick=async ()=>{
-  const link = linkInput.value.trim();
-  const parsed = parseLink(link);
-  if(!parsed){ alert('Link inválido'); return; }
-
-  if(parsed.type==='video'){
-    playlist=[{video_id:parsed.id,title:'VOD Real',duration_seconds:900}];
-    index=0;
-    renderPlaylist();
-    loadIndex(0);
-  } else {
-    playlist = await fetchChannelVideos(parsed.id,15,10);
-    if(!playlist.length){ alert('Nenhum VOD público com mais de 15 min encontrado'); return; }
-    index=0;
-    renderPlaylist();
-    loadIndex(0);
-  }
-};
-
-linkInput.addEventListener('keydown',e=>{if(e.key==='Enter') playBtn.click();});
-</script>
+      const videoId = match[1];
+      loadVideoLoop(videoId);
+      if (!chatBox.hasChildNodes()) startChatSimulation();
+    });
+  </script>
 </body>
 </html>
